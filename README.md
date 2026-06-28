@@ -147,7 +147,7 @@ This project hit (and resolved) several genuine real-world issues — documented
 .
 ├── 📄 README.md
 ├── 📂 docs/
-│   └── Wazuh_Snort_Integration_Report.docx   # Full project report
+│   └── Wazuh_Snort_Integration_Report.pdf   # Full project report
 ├── 📂 config/
 │   ├── ossec.conf.snippet                    # Redacted localfile config (no keys/secrets)
 │   └── snort.conf.snippet                    # Redacted sfportscan config
