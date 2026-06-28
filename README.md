@@ -22,13 +22,11 @@
 
 ---
 
-## 📐 Architecture Diagram
+## 🗺️ Architecture Diagram
 
-<div align="center">
-
-![Architecture Diagram](diagrams/architecture_diagram.png)
-
-</div>
+<p align="center">
+  <img src="diagrams/architecture_diagram.png" alt="Architecture Diagram" width="100%"/>
+</p>
 
 ---
 
