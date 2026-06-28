@@ -1,0 +1,28 @@
+#
+# REDACTED SNIPPET — for demonstration purposes only.
+# This is NOT the full snort.conf file. The actual configuration also
+# includes network variable definitions (HOME_NET, EXTERNAL_NET), rule
+# path declarations, and other preprocessor settings specific to the lab
+# environment, which have been omitted here.
+#
+# This snippet shows the single line that was changed to enable Snort's
+# portscan detection preprocessor, which was commented out (disabled)
+# by default in the stock configuration.
+#
+
+# --- BEFORE (default, disabled) ---
+# preprocessor sfportscan: proto { all } memcap { 10000000 } sense_level { low }
+
+# --- AFTER (enabled) ---
+preprocessor sfportscan: proto { all } memcap { 10000000 } sense_level { low }
+
+#
+# proto { all }       -> monitor all protocols (TCP, UDP, ICMP) for scan patterns
+# memcap { 10000000 } -> 10 MB of memory allocated for tracking scan state
+# sense_level { low }  -> detection sensitivity tuned for clear, low-noise alerts
+#
+
+# --- Active output formats (also referenced in the report) ---
+# output alert_unified2: filename snort.alert, limit 128, nostamp
+# output alert_syslog: LOG_AUTH LOG_ALERT
+# output alert_fast: snort.alert.fast

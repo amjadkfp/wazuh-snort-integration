@@ -1,0 +1,28 @@
+<!--
+  REDACTED SNIPPET — for demonstration purposes only.
+  This is NOT the full ossec.conf file and contains no real IPs, keys, or secrets.
+  The actual production ossec.conf also contains <server>, <client>, and other
+  blocks (with the real Manager IP and other lab-specific values) which have
+  been deliberately omitted here.
+
+  This snippet shows only the <localfile> directive added to integrate
+  Snort's plain-text alert log into the Wazuh Agent's log collection pipeline.
+-->
+
+<ossec_config>
+  <localfile>
+    <log_format>snort-fast</log_format>
+    <location>/var/log/snort/snort.alert.fast</location>
+  </localfile>
+</ossec_config>
+
+<!--
+  log_format: snort-fast
+    Tells Wazuh's logcollector module to use its built-in Snort decoder,
+    which parses fields such as source IP, destination IP, signature ID,
+    classification, and priority from each alert line.
+
+  location: /var/log/snort/snort.alert.fast
+    The plain-text, one-alert-per-line output file produced by Snort's
+    alert_fast output plugin (configured in snort.conf).
+-->
