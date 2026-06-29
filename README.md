@@ -97,7 +97,7 @@ A step-by-step record of the full build process, from initial VM provisioning th
 | **28. Reset Dashboard Admin Password** | `sudo bash /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p 'Soclab.2026' -v` | — | Reset Dashboard credentials with the indexer confirmed healthy (`Clusterstate: GREEN`). |
 | **29. Log Into Dashboard with New Credentials** | *(Browser)* `https://127.0.0.1:8443` → `admin` / `Soclab.2026` | `Fig 15` | Confirmed successful login; agent remained connected throughout the outage and recovery. |
 | **30. Locate the Snort Alert in the Dashboard** | *(Dashboard)* **Threat Hunting → Events** → Search: `SNMP` | `Fig 16` | Final verification: 2 hits, `agent.name: ubuntu-victim`, `rule.id: 20100`, `rule.level: 8` — full Snort-to-Wazuh-to-Dashboard pipeline confirmed. |
----
+
 ---
 
 ## ✅ Result
