@@ -61,6 +61,44 @@ All VMs were orchestrated in Oracle VirtualBox on a shared NAT Network (`10.0.2.
 > **⚠️ Note:** Due to host RAM constraints (8 GB), the Kali Linux VM could not run concurrently with the other two machines for the final test. Attack traffic was instead generated from the Wazuh-Manager VM against the victim, preserving the same cross-host network architecture. See the [troubleshooting log](#-troubleshooting-highlights) below for the full reasoning.
 
 ---
+## 📸 Project Procedure & Screenshots
+
+A step-by-step record of the full build process, from initial VM provisioning through final attack detection and dashboard verification.
+
+| Step | Command(s) Used | Screenshot | Description |
+|---|---|---|---|
+| **1. Wazuh Manager VM Setup** | *(Wazuh OVA deployed in VirtualBox)* | `Fig A` | Deployed the official Wazuh OVA image as a VirtualBox VM. First boot displays default OS login credentials (`wazuh-user` / `wazuh`) for terminal access — separate from the Dashboard's web login. |
+| **2. Confirm Wazuh Manager Network Identity** | `ip a` | `Fig B` | Verified the Manager's IP inside the VirtualBox NAT Network: `10.0.2.12/24`. This IP becomes the reference point for all agent and attack-traffic configuration. |
+| **3. Ubuntu Victim VM Setup** | *(Ubuntu Server 22.04 installed fresh in VirtualBox)* | `Fig C` | Installed a standard Ubuntu Server 22.04 VM as the monitored endpoint, to later run Snort (IDS) and the Wazuh Agent. |
+| **4. Confirm Ubuntu Victim Network Identity** | `ip a` | `Fig D` | Verified the Victim's IP: `10.0.2.14/24`, confirming it sits on the same subnet as the Manager. |
+| **5. Kali Linux VM — Planned Attacker** | *(Kali Linux VM created in VirtualBox, 2048MB RAM / 2 vCPU)* | `Fig E` | Provisioned a third VM, Kali Linux, as the intended attacker machine for Nmap scans, brute-force attempts, and ping sweeps. |
+| **6. Kali Resource Constraint Identified** | Task Manager → Performance → Memory | `Fig F` | Booting Kali alongside the other two VMs froze the host. Diagnosed as insufficient host RAM (8GB total) for three simultaneous VMs. |
+| **7. Kali RAM/CPU Trimmed (mitigation attempt)** | *(VirtualBox Settings → System, VM powered off)* | `Fig G` | Reduced Kali's allocated resources (2048MB→1536MB RAM, 2→1 vCPU) attempting to free enough headroom. |
+| **8. Decision: Kali Unused, Pivot to Manager-as-Attacker** | *(architectural decision — no command)* | — | Confirmed via `free -h` that headroom remained negligible even trimmed. Decided to generate attack traffic from the Wazuh-Manager VM instead, since it was already required to run. |
+| **9. Import Wazuh GPG Signing Key** | `sudo mkdir -p /usr/share/keyrings`<br>`curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH -o /tmp/wazuh-key.gpg`<br>`sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import /tmp/wazuh-key.gpg`<br>`sudo chmod 644 /usr/share/keyrings/wazuh.gpg` | `Fig 1` | Imported Wazuh's public signing key into a dedicated keyring on Ubuntu-Victim, required before installing the agent via APT. |
+| **10. Add Wazuh APT Repository** | `echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \| sudo tee -a /etc/apt/sources.list.d/wazuh.list`<br>`sudo apt update` | `Fig 2` | Registered Wazuh's package server as a trusted APT source. Confirmed reachable with no signature errors (`Hit:1 ... InRelease`). |
+| **11. Install Wazuh Agent with Manager IP Pre-Set** | `sudo WAZUH_MANAGER="10.0.2.12" apt-get install wazuh-agent -y` | `Fig 4` | Installed Wazuh Agent v4.14.5. The `WAZUH_MANAGER` environment variable auto-wrote the Manager's IP into the agent config during install. |
+| **12. Verify Agent Configuration** | `sudo cat /var/ossec/etc/ossec.conf \| grep -A 3 "<server>"` | `Fig 5` | Confirmed the agent's config correctly references the Manager's IP, port 1514, and TCP protocol. |
+| **13. Enable and Start Wazuh Agent Service** | `sudo systemctl daemon-reload`<br>`sudo systemctl enable wazuh-agent`<br>`sudo systemctl start wazuh-agent`<br>`sudo systemctl status wazuh-agent` | `Fig 6` | Started and enabled the agent service. Confirmed all sub-modules (`wazuh-agentd`, `wazuh-execd`, `wazuh-syscheckd`, `wazuh-logcollector`, `wazuh-modulesd`) launched successfully. |
+| **14. Register Agent on Manager** | *(On Manager)* `sudo /var/ossec/bin/manage_agents` → `A` (Add) → `E` (Extract key) | `Fig 8` | Manually registered the Victim agent on the Manager and generated a unique authentication key. |
+| **15. Import Key on Victim** | *(On Victim)* `sudo /var/ossec/bin/manage_agents` → `I` (Import) → `y`<br>`sudo systemctl restart wazuh-agent` | `Fig 9` | Imported the key into the Victim's agent config, completing the agent-manager authentication handshake. |
+| **16. Verify Agent Connectivity (CLI)** | *(On Manager)* `sudo /var/ossec/bin/agent_control -l` | `Fig 10` | Confirmed agent status `Active` from the Manager's perspective (`ID: 002, Name: ubuntu-victim`). |
+| **17. Resolve Dashboard Network Access Issue** | *(VirtualBox NAT Network → Port Forwarding: Host 8443 → Guest 10.0.2.12:443)* | — | Host browser couldn't reach the Manager's internal IP directly (VirtualBox NAT isolates VM IPs from host). Fixed via port forwarding to `https://127.0.0.1:8443`. |
+| **18. Verify Agent Connectivity (Dashboard)** | *(Browser)* `https://127.0.0.1:8443` → Overview page | `Fig 11` | Confirmed agent connectivity visually: "Active (1) / Disconnected (0)." Default rules already generating baseline alerts. |
+| **19. Locate Snort's Alert Output File** | `sudo find / -iname "*alert*" -path "*snort*" 2>/dev/null`<br>`sudo grep -i "output" /etc/snort/snort.conf \| grep -i alert`<br>`sudo systemctl status snort` | — | Identified Snort writes to three formats. Selected `/var/log/snort/snort.alert.fast` (plain-text) as Wazuh's monitoring target. |
+| **20. Add `<localfile>` Directive to Agent Config** | `sudo nano /var/ossec/etc/ossec.conf` *(added `<localfile>` block with `log_format: snort-fast`)* | `Fig 12` | Configured the Wazuh Agent to monitor Snort's alert log, correctly wrapped within its own `<ossec_config>` block. |
+| **21. Restart Agent and Confirm Log Monitoring** | `sudo systemctl restart wazuh-agent`<br>`sudo tail -n 20 /var/ossec/logs/ossec.log` | `Fig 13` | Confirmed via agent log: `wazuh-logcollector` actively tailing `/var/log/snort/snort.alert.fast` — the core integration point. |
+| **22. Enable Snort's Portscan Detection** | `sudo grep -i "portscan" /etc/snort/snort.conf`<br>`sudo nano /etc/snort/snort.conf` *(uncommented `sfportscan`)*<br>`sudo systemctl restart snort` | — | Found the portscan preprocessor disabled by default. Enabled it and restarted Snort. |
+| **23. Diagnose Self-Scan Detection Failure** | `sudo nmap -sS 10.0.2.14` *(from Victim, targeting itself)*<br>`ip route get 10.0.2.14` | — | Self-scans produced zero alerts. Diagnosed via `ip route get`: self-traffic routes through loopback (`lo`), invisible to Snort, which monitors the physical interface only. |
+| **24. Generate Genuine Cross-Host Attack Traffic** | *(On Manager)*<br>`sudo yum install nmap -y`<br>`ping -c 4 10.0.2.14`<br>`sudo nmap -sS 10.0.2.14` | — | Pivoted to scanning from the Manager VM — a genuinely separate host — so traffic would cross the real network interface. |
+| **25. Confirm Snort Detected the Cross-Host Scan** | *(On Victim)* `sudo tail -n 20 /var/log/snort/snort.alert.fast` | `Fig 14` | Confirmed two fresh, classified SNMP alerts: source `10.0.2.12` → destination `10.0.2.14`, "Attempted Information Leak," Priority 2. |
+| **26. Diagnose Dashboard Login Failure** | `sudo systemctl status wazuh-indexer` | — | Login began failing. Diagnosed `Active: failed (Result: oom-kill)` — OpenSearch killed by the kernel due to VM memory pressure. |
+| **27. Restart Indexer and Check Available Memory** | `sudo systemctl start wazuh-indexer`<br>`free -h` | — | Restarted the OpenSearch backend and confirmed sufficient memory before proceeding. |
+| **28. Reset Dashboard Admin Password** | `sudo bash /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p 'Soclab.2026' -v` | — | Reset Dashboard credentials with the indexer confirmed healthy (`Clusterstate: GREEN`). |
+| **29. Log Into Dashboard with New Credentials** | *(Browser)* `https://127.0.0.1:8443` → `admin` / `Soclab.2026` | `Fig 15` | Confirmed successful login; agent remained connected throughout the outage and recovery. |
+| **30. Locate the Snort Alert in the Dashboard** | *(Dashboard)* **Threat Hunting → Events** → Search: `SNMP` | `Fig 16` | Final verification: 2 hits, `agent.name: ubuntu-victim`, `rule.id: 20100`, `rule.level: 8` — full Snort-to-Wazuh-to-Dashboard pipeline confirmed. |
+---
+---
 
 ## ✅ Result
 
