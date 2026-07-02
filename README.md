@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ Wazuh + Snort Integration
+# 🛡️ Centralized Threat Detection Through Wazuh–Snort SIEM Integration
 ### Centralized Intrusion Detection and Monitoring
 
 *A hands-on SOC lab project integrating **Snort** (open-source network IDS) with **Wazuh** (open-source SIEM) to build a centralized threat detection and monitoring pipeline, entirely in a self-hosted virtual lab.*
